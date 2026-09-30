@@ -1,0 +1,50 @@
+appId: app.jaduu.desktop
+productName: JADUU
+directories:
+  output: release/${version}
+  buildResources: assets
+files:
+  - dist/**/*
+  - package.json
+  - "!**/*.map"
+asarUnpack:
+  - "**/node_modules/better-sqlite3/**"
+  - "**/node_modules/pdf-parse/**"
+  - "**/node_modules/mammoth/**"
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+  icon: assets/icon.ico
+  artifactName: "JADUU Setup ${version} ${arch}.${ext}"
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: JADUU
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  icon: assets/icon.icns
+  category: public.app-category.productivity
+  identity: null
+  artifactName: "JADUU ${version} ${arch}.${ext}"
+dmg:
+  title: JADUU ${version}
+  writeUpdateInfo: true
+linux:
+  target: [AppImage]
+  icon: assets/icons
+  category: Utility
+publish:
+  provider: github
+  owner: jaduu
+  repo: jaduu
+protocols:
+  - name: JADUU
+    schemes: [jaduu]
