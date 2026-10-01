@@ -43,8 +43,8 @@ linux:
   category: Utility
 publish:
   provider: github
-  owner: jaduu
-  repo: jaduu
+  owner: Abdullah-584
+  repo: JADUU
 protocols:
   - name: JADUU
     schemes: [jaduu]
