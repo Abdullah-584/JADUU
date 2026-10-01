@@ -132,7 +132,11 @@ function setupServices(): void {
   const settingsRepo = new SettingsRepository(db);
 
   settingsService = new SettingsService(settingsRepo);
-  ollamaService = new OllamaService(settingsService.getAll().ollamaUrl || DEFAULT_OLLAMA_URL);
+  const settings = settingsService.getAll();
+  ollamaService = new OllamaService(
+    settings.ollamaUrl || DEFAULT_OLLAMA_URL,
+    settings.ollamaApiKey ?? "",
+  );
   const indexer = new FileIndexer(files, chunks);
   const search = new SearchService(db, files, chunks, conversations, messages);
   chatService = new ChatService(conversations, messages, files, settingsService, ollamaService, search);

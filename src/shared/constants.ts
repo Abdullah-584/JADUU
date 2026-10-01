@@ -15,11 +15,17 @@ export const DEFAULT_SYSTEM_PROMPT = [
   "Respect user privacy. Never claim to send data anywhere.",
 ].join("\n");
 
-export const DEFAULT_SHORTCUT =
-  process.platform === "darwin" ? "CommandOrControl+Shift+Space" : "Ctrl+Shift+Space";
+/** Platform detection that works in Electron main (process.platform) AND the sandboxed renderer (userAgent). */
+const IS_MAC: boolean =
+  typeof process !== "undefined" && typeof process.platform === "string"
+    ? process.platform === "darwin"
+    : typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent);
+
+export const DEFAULT_SHORTCUT = IS_MAC ? "CommandOrControl+Shift+Space" : "Ctrl+Shift+Space";
 
 export const DEFAULT_SETTINGS = {
   ollamaUrl: DEFAULT_OLLAMA_URL,
+  ollamaApiKey: "",
   defaultModel: "",
   theme: "dark" as const,
   temperature: 0.7,

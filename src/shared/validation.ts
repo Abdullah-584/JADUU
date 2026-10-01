@@ -19,6 +19,9 @@ export const ollamaUrlSchema = z
     }
   }, "Must be a valid http(s) URL");
 
+/** Optional bearer token for hosted Ollama-compatible endpoints. Never logged. */
+export const ollamaApiKeySchema = z.string().trim().max(512);
+
 export const modelNameSchema = z
   .string()
   .trim()
@@ -60,6 +63,7 @@ export const shortcutSchema = z
 export const settingsPatchSchema = z
   .object({
     ollamaUrl: ollamaUrlSchema.optional(),
+    ollamaApiKey: ollamaApiKeySchema.optional(),
     defaultModel: modelNameSchema.optional(),
     theme: themeSchema.optional(),
     temperature: temperatureSchema.optional(),

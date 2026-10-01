@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   messageContentSchema,
   modelNameSchema,
+  ollamaApiKeySchema,
   ollamaUrlSchema,
   safePathSchema,
   settingsPatchSchema,
@@ -21,6 +22,17 @@ describe("ollamaUrlSchema", () => {
     expect(validate(ollamaUrlSchema, "ftp://x").ok).toBe(false);
     expect(validate(ollamaUrlSchema, "not a url").ok).toBe(false);
     expect(validate(ollamaUrlSchema, "").ok).toBe(false);
+  });
+});
+
+describe("ollamaApiKeySchema", () => {
+  it("accepts empty (no auth) and typical tokens", () => {
+    expect(validate(ollamaApiKeySchema, "").ok).toBe(true);
+    expect(validate(ollamaApiKeySchema, "  ").ok).toBe(true);
+    expect(validate(ollamaApiKeySchema, "sk-abc123").ok).toBe(true);
+  });
+  it("rejects oversized keys", () => {
+    expect(validate(ollamaApiKeySchema, "k".repeat(513)).ok).toBe(false);
   });
 });
 
@@ -84,5 +96,9 @@ describe("settingsPatchSchema", () => {
   });
   it("rejects invalid enum values", () => {
     expect(validate(settingsPatchSchema, { theme: "neon" }).ok).toBe(false);
+  });
+  it("accepts an API key patch", () => {
+    expect(validate(settingsPatchSchema, { ollamaApiKey: "token-1" }).ok).toBe(true);
+    expect(validate(settingsPatchSchema, { ollamaApiKey: "" }).ok).toBe(true);
   });
 });

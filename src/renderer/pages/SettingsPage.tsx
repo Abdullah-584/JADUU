@@ -38,12 +38,15 @@ export default function SettingsPage() {
   const setSelectedModel = useChatStore((s) => s.setSelectedModel);
 
   const [ollamaUrl, setOllamaUrl] = useState(settings.ollamaUrl);
+  const [ollamaApiKey, setOllamaApiKey] = useState(settings.ollamaApiKey);
+  const [showKey, setShowKey] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState(settings.systemPrompt);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<null | boolean>(null);
   const [shortcutDraft, setShortcutDraft] = useState(settings.shortcutQuickAssistant);
 
   useEffect(() => setOllamaUrl(settings.ollamaUrl), [settings.ollamaUrl]);
+  useEffect(() => setOllamaApiKey(settings.ollamaApiKey), [settings.ollamaApiKey]);
   useEffect(() => setSystemPrompt(settings.systemPrompt), [settings.systemPrompt]);
 
   const online = status?.online ?? false;
@@ -52,7 +55,7 @@ export default function SettingsPage() {
     setTesting(true);
     setTestResult(null);
     try {
-      await update({ ollamaUrl });
+      await update({ ollamaUrl, ollamaApiKey });
       const result = await refresh(true);
       setTestResult(result?.online ?? false);
       await refreshModels(true);
@@ -99,14 +102,37 @@ export default function SettingsPage() {
         <section id="ai" className="mt-6 rounded-2xl border border-line bg-surface px-5 py-2">
           <h2 className="py-2 text-sm font-semibold text-txt-1">AI — Ollama</h2>
           <div className="divide-y divide-line">
-            <Row label="Ollama URL" hint={`Default: ${DEFAULT_OLLAMA_URL}`}>
+            <Row label="Ollama API URL" hint={`Default: ${DEFAULT_OLLAMA_URL} — point this at any Ollama server, local or hosted`}>
               <input
                 value={ollamaUrl}
                 onChange={(e) => setOllamaUrl(e.target.value)}
+                placeholder="https://your-ollama-host.example.com"
                 className="w-64 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs text-txt-1 outline-none focus:border-line-strong"
               />
             </Row>
-            <Row label="Connection" hint={online ? `Connected ${status?.version ? `· v${status.version}` : ""}` : "Offline — start Ollama"}>
+            <Row label="API Key (optional)" hint="Bearer token for hosted endpoints that require one — stored locally, never logged">
+              <div className="flex items-center gap-1.5">
+                <input
+                  type={showKey ? "text" : "password"}
+                  value={ollamaApiKey}
+                  onChange={(e) => setOllamaApiKey(e.target.value)}
+                  onBlur={() => {
+                    if (ollamaApiKey !== settings.ollamaApiKey) void update({ ollamaApiKey });
+                  }}
+                  placeholder="Not required"
+                  autoComplete="off"
+                  className="w-64 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs text-txt-1 outline-none focus:border-line-strong"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey((v) => !v)}
+                  className="rounded-lg border border-line px-2 py-1.5 text-[11px] text-txt-3 hover:text-txt-1"
+                >
+                  {showKey ? "Hide" : "Show"}
+                </button>
+              </div>
+            </Row>
+            <Row label="Connection" hint={online ? `Connected ${status?.version ? `· v${status.version}` : ""}` : "Offline — check the URL above"}>
               <div className="flex items-center gap-2">
                 <span className={`inline-block h-2 w-2 rounded-full ${online ? "bg-ok" : "bg-danger"}`} />
                 <button
@@ -260,7 +286,7 @@ export default function SettingsPage() {
             and documents never leave your machine.
           </div>
           <div className="divide-y divide-line">
-            <Row label="Local-only mode" hint="All AI calls go to your local Ollama server">
+            <Row label="Private by default" hint="All AI calls go to the Ollama server you configure — nowhere else">
               <div className="flex items-center gap-2 text-xs text-ok">
                 <IconCheck size={13} /> Enabled
               </div>

@@ -1,4 +1,4 @@
-/** OllamaProvider — implements the AIProvider contract against a local Ollama HTTP server. */
+/** OllamaProvider — implements the AIProvider contract against an Ollama HTTP server (local or remote). */
 import type { AIProvider, GenerateOptions, ModelInfo } from "@shared/types";
 import { OLLAMA_TIMEOUT_MS } from "@shared/constants";
 import type {
@@ -20,7 +20,10 @@ export function normalizeBaseUrl(raw: string): string {
 export class OllamaProvider implements AIProvider {
   readonly id = "ollama";
 
-  constructor(private baseUrl: string) {}
+  constructor(
+    private baseUrl: string,
+    private apiKey = "",
+  ) {}
 
   setBaseUrl(url: string): void {
     this.baseUrl = normalizeBaseUrl(url);
@@ -30,13 +33,35 @@ export class OllamaProvider implements AIProvider {
     return this.baseUrl;
   }
 
-  private async fetchJson<T>(pathName: string, signal?: AbortSignal, timeoutMs = OLLAMA_TIMEOUT_MS): Promise<T> {
+  setApiKey(key: string): void {
+    this.apiKey = key.trim();
+  }
+
+  getApiKey(): string {
+    return this.apiKey;
+  }
+
+  /** Hosted Ollama-compatible endpoints commonly gate access behind a bearer token. */
+  private authHeaders(): Record<string, string> {
+    return this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {};
+  }
+
+  private async fetchJson<T>(
+    pathName: string,
+    signal?: AbortSignal,
+    timeoutMs = OLLAMA_TIMEOUT_MS,
+    init: RequestInit = {},
+  ): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const onOuterAbort = () => controller.abort();
     signal?.addEventListener("abort", onOuterAbort, { once: true });
     try {
-      const res = await fetch(`${this.baseUrl}${pathName}`, { signal: controller.signal });
+      const res = await fetch(`${this.baseUrl}${pathName}`, {
+        ...init,
+        headers: { ...this.authHeaders(), ...(init.headers as Record<string, string>) },
+        signal: controller.signal,
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
       return (await res.json()) as T;
     } finally {
@@ -48,6 +73,15 @@ export class OllamaProvider implements AIProvider {
   async checkConnection(): Promise<{ online: boolean; version: string | null; error: string | null }> {
     try {
       const data = await this.fetchJson<{ version?: string }>("/api/version");
+      // Public endpoints on ollama.com don't validate the key — probe the identity
+      // endpoint so a wrong/expired API key surfaces here instead of at chat time.
+      if (this.apiKey) {
+        await this.fetchJson<unknown>("/api/me", undefined, OLLAMA_TIMEOUT_MS, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+      }
       return { online: true, version: data.version ?? null, error: null };
     } catch (err) {
       return { online: false, version: null, error: errorMessage(err) };
@@ -119,7 +153,7 @@ export class OllamaProvider implements AIProvider {
   ): AsyncGenerator<{ text?: string; done?: boolean }, void, unknown> {
     const res = await fetch(`${this.baseUrl}${pathName}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...this.authHeaders() },
       body: JSON.stringify(body),
       signal,
     });

@@ -114,7 +114,7 @@ export class ChatService {
           if (persisted) this.messages.updateContent(assistantMessageId, `${full}\n\n_Stopped._`);
           handlers.onCancelled(assistantMessageId);
         } else {
-          const userMessageText = err instanceof AppError ? err.userMessage : toFriendlyOllamaError(err);
+          const userMessageText = err instanceof AppError ? err.userMessage : toFriendlyOllamaError(err, model);
           log.error(`chat stream failed: ${safeError(err)}`);
           if (persisted) {
             this.messages.updateContent(assistantMessageId, `${full}\n\n⚠️ ${userMessageText}`);
@@ -185,9 +185,13 @@ export class ChatService {
   }
 }
 
-function toFriendlyOllamaError(err: unknown): string {
+function toFriendlyOllamaError(err: unknown, model?: string): string {
   const raw = err instanceof Error ? err.message : String(err);
   if (raw.includes("ECONNREFUSED")) return "JADUU couldn't connect to Ollama. Make sure Ollama is running and try again.";
+  if (/\b401\b|unauthorized/i.test(raw))
+    return "This Ollama server rejected your API key. Check it in Settings → AI → API Key, then retry.";
+  if (/\b402\b|payment|quota/i.test(raw))
+    return `Your Ollama Cloud plan can't run "${model ?? "this model"}". Pick a free model in the composer (e.g. gpt-oss:20b), or add credits at ollama.com/settings.`;
   if (raw.includes("404")) return "That model isn't installed. Pull it with `ollama pull <model>` and refresh.";
   if (raw.toLowerCase().includes("timeout")) return "Ollama took too long to respond. Try a smaller model or check system load.";
   return raw.slice(0, 200);

@@ -5,6 +5,7 @@ import { useSettingsStore } from "../stores/settingsStore";
 import { useUiStore } from "../stores/uiStore";
 import { useChatStore } from "../stores/chatStore";
 import { IconArrowLeft, IconCheck, IconRefresh, IconSparkle } from "../components/icons";
+import { DEFAULT_OLLAMA_URL } from "@shared/constants";
 
 type Step = "welcome" | "ollama" | "model";
 
@@ -15,11 +16,16 @@ export default function OnboardingPage() {
   const refresh = useOllamaStore((s) => s.refresh);
   const refreshModels = useOllamaStore((s) => s.refreshModels);
   const checking = useOllamaStore((s) => s.checking);
+  const settings = useSettingsStore((s) => s.settings);
   const updateSettings = useSettingsStore((s) => s.update);
   const setOnboarded = useUiStore((s) => s.setOnboarded);
   const setSelectedModel = useChatStore((s) => s.setSelectedModel);
   const [chosen, setChosen] = useState<string>("");
+  const [urlDraft, setUrlDraft] = useState(settings.ollamaUrl || DEFAULT_OLLAMA_URL);
+  const [keyDraft, setKeyDraft] = useState(settings.ollamaApiKey);
+  const [showKey, setShowKey] = useState(false);
 
+  // Step 2 probes whatever URL is currently configured; "Retry" applies the draft first.
   useEffect(() => {
     if (step === "ollama") {
       void refresh(true);
@@ -31,7 +37,20 @@ export default function OnboardingPage() {
 
   const online = status?.online ?? false;
 
+  // Always apply the drafts first, then probe — the key must never be silently dropped.
+  const applyConnection = async (): Promise<boolean> => {
+    await updateSettings({ ollamaUrl: urlDraft.trim(), ollamaApiKey: keyDraft });
+    const result = await refresh(true);
+    return result?.online ?? false;
+  };
+
+  const retry = () => applyConnection();
+
   const finish = async () => {
+    // Continue can be clicked after editing the URL/key without Retry — save first.
+    if (urlDraft.trim() !== settings.ollamaUrl || keyDraft !== settings.ollamaApiKey) {
+      await updateSettings({ ollamaUrl: urlDraft.trim(), ollamaApiKey: keyDraft });
+    }
     const model = chosen || models[0]?.name || "";
     if (model) {
       await updateSettings({ defaultModel: model });
@@ -53,10 +72,10 @@ export default function OnboardingPage() {
                 <IconSparkle size={13} className="text-accent" /> Private AI
               </li>
               <li className="flex items-center justify-center gap-2">
-                <IconSparkle size={13} className="text-accent" /> Runs on your computer
+                <IconSparkle size={13} className="text-accent" /> Powered by Ollama
               </li>
               <li className="flex items-center justify-center gap-2">
-                <IconSparkle size={13} className="text-accent" /> Powered by Ollama
+                <IconSparkle size={13} className="text-accent" /> No cloud AI, no telemetry
               </li>
             </ul>
             <button
@@ -78,30 +97,75 @@ export default function OnboardingPage() {
             >
               <IconArrowLeft size={12} /> Back
             </button>
-            <h2 className="text-lg font-semibold">Checking Ollama…</h2>
+            <h2 className="text-lg font-semibold">Connect to Ollama</h2>
             <p className="mt-1 text-sm text-txt-2">
-              JADUU talks to a local Ollama server at{" "}
-              <code className="rounded bg-surface-2 px-1.5 py-0.5 text-xs">http://localhost:11434</code>
+              Point JADUU at any Ollama server — on this computer or a remote one.
             </p>
 
-            <div className={`mt-6 rounded-xl border p-4 ${online ? "border-ok/40 bg-ok/5" : "border-line bg-surface-2"}`}>
+            <div className="mt-4 space-y-2">
+              <label className="block">
+                <span className="text-xs text-txt-3">Ollama API URL</span>
+                <input
+                  value={urlDraft}
+                  onChange={(e) => setUrlDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void retry();
+                  }}
+                  placeholder={DEFAULT_OLLAMA_URL}
+                  spellCheck={false}
+                  autoComplete="off"
+                  className="mt-1 w-full rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-xs text-txt-1 outline-none focus:border-line-strong"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs text-txt-3">API key (optional — for hosted endpoints)</span>
+                <div className="mt-1 flex gap-1.5">
+                  <input
+                    type={showKey ? "text" : "password"}
+                    value={keyDraft}
+                    onChange={(e) => setKeyDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void retry();
+                    }}
+                    placeholder="Not required"
+                    autoComplete="off"
+                    className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-txt-1 outline-none focus:border-line-strong"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey((v) => !v)}
+                    className="rounded-lg border border-line px-2.5 text-[11px] text-txt-3 hover:text-txt-1"
+                  >
+                    {showKey ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </label>
+            </div>
+
+            <div className={`mt-4 rounded-xl border p-4 ${online ? "border-[rgba(74,222,128,0.45)] bg-[rgba(74,222,128,0.08)]" : "border-line bg-surface-2"}`}>
               {checking && !status ? (
                 <div className="text-sm text-txt-2">Connecting…</div>
               ) : online ? (
                 <div className="flex items-center gap-2 text-sm text-ok">
-                  <IconCheck size={15} /> Ollama is ready {status?.version ? `(v${status.version})` : ""}
+                  <IconCheck size={15} /> Connected {status?.version ? `(v${status.version})` : ""}
                 </div>
               ) : (
                 <div>
-                  <div className="text-sm font-medium text-txt-1">Ollama is not running.</div>
-                  <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-txt-2">
+                  <div className="text-sm font-medium text-txt-1">
+                    {status?.error ? "Could not reach this server." : "Ollama server not reachable."}
+                  </div>
+                  {status?.error ? (
+                    <div className="mt-1 break-all font-mono text-[11px] text-txt-3">{status.error}</div>
+                  ) : null}
+                  <ul className="mt-2 list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-txt-2">
+                    <li>Check the URL — remote hosts must allow outside access</li>
                     <li>
-                      Install Ollama from <span className="text-accent">ollama.com/download</span>
+                      On a remote machine, start Ollama with{" "}
+                      <code className="rounded bg-surface-3 px-1">OLLAMA_HOST=0.0.0.0</code>
                     </li>
-                    <li>Start the Ollama app (it runs in your system tray)</li>
-                    <li>Pull a model in a terminal: <code className="rounded bg-surface-3 px-1">ollama pull llama3.2</code></li>
-                    <li>Come back and retry — JADUU never sends your data anywhere else</li>
-                  </ol>
+                    <li>Enter an API key above if the host requires one</li>
+                    <li>Then press Retry</li>
+                  </ul>
                 </div>
               )}
             </div>
@@ -109,7 +173,7 @@ export default function OnboardingPage() {
             <div className="mt-5 flex gap-2">
               <button
                 type="button"
-                onClick={() => void refresh(true)}
+                onClick={() => void retry()}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-sm text-txt-2 transition-colors hover:text-txt-1"
               >
                 <IconRefresh size={13} /> Retry
@@ -130,12 +194,12 @@ export default function OnboardingPage() {
           <div className="flex flex-col">
             <h2 className="text-lg font-semibold">Choose your AI model</h2>
             <p className="mt-1 text-sm text-txt-2">
-              These are the models installed on your machine. You can switch anytime.
+              These are the models available on your Ollama server. You can switch anytime.
             </p>
             <div className="mt-4 max-h-56 space-y-1.5 overflow-y-auto pr-1">
               {models.length === 0 ? (
                 <div className="rounded-xl border border-line bg-surface-2 p-4 text-xs leading-relaxed text-txt-2">
-                  No models installed yet. Open a terminal and run:
+                  No models available yet. On the Ollama server, run:
                   <pre className="mt-2 rounded-lg bg-surface-3 p-2.5 text-[11px]">ollama pull qwen3</pre>
                   Then click Refresh.
                 </div>

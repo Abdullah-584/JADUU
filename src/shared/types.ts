@@ -87,6 +87,8 @@ export type ThemeMode = "dark" | "light" | "system";
 
 export interface AppSettings {
   ollamaUrl: string;
+  /** Optional bearer token for Ollama-compatible endpoints that require auth. Empty = none. */
+  ollamaApiKey: string;
   defaultModel: string;
   theme: ThemeMode;
   temperature: number;

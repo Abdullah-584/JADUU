@@ -19,7 +19,7 @@ export function createQuickAssistant(): BrowserWindow {
     backgroundColor: "#14121f",
     title: "JADUU Quick Assistant",
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,

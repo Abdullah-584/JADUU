@@ -16,6 +16,7 @@ export function AppLayout() {
   const selectedModel = useChatStore((s) => s.selectedModel);
   const startPolling = useOllamaStore((s) => s.startPolling);
   const stopPolling = useOllamaStore((s) => s.stopPolling);
+  const refreshModels = useOllamaStore((s) => s.refreshModels);
   const models = useOllamaStore((s) => s.models);
   const settings = useSettingsStore((s) => s.settings);
 
@@ -36,10 +37,13 @@ export function AppLayout() {
     };
   }, [handleStreamEvent, newConversation, navigate, selectedModel, startPolling, stopPolling]);
 
-  // Load conversations + pick a default model once models arrive.
+  // Load conversations + the model list once on startup (without this, the model
+  // picker stays empty outside onboarding/settings and sends fall back to stale
+  // per-conversation models).
   useEffect(() => {
     void loadConversations();
-  }, [loadConversations]);
+    void refreshModels(true);
+  }, [loadConversations, refreshModels]);
 
   useEffect(() => {
     if (models.length > 0 && !selectedModel) {

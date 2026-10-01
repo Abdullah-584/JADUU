@@ -17,8 +17,8 @@ export class OllamaService {
   private readonly statusTtlMs = 10_000;
   private abortControllers = new Map<string, AbortController>();
 
-  constructor(baseUrl: string) {
-    this.provider = new OllamaProvider(normalizeBaseUrl(baseUrl));
+  constructor(baseUrl: string, apiKey = "") {
+    this.provider = new OllamaProvider(normalizeBaseUrl(baseUrl), apiKey);
     this.status.url = this.provider.getBaseUrl();
   }
 
@@ -29,6 +29,18 @@ export class OllamaService {
     this.status.url = normalized;
     this.lastStatusAt = 0; // force refresh
     this.models = [];
+  }
+
+  setApiKey(key: string): void {
+    const trimmed = key.trim();
+    if (trimmed === this.provider.getApiKey()) return;
+    this.provider.setApiKey(trimmed);
+    this.lastStatusAt = 0; // force refresh under the new credentials
+    this.models = [];
+  }
+
+  getApiKey(): string {
+    return this.provider.getApiKey();
   }
 
   getStatus(): OllamaStatus {

@@ -139,7 +139,7 @@ export default function QuickAssistantPage() {
 
         {answer || mode === "streaming" ? (
           <div className="selectable">
-            {error ? <div className="mb-2 rounded-xl bg-danger/10 px-3.5 py-2 text-xs text-danger">⚠️ {error}</div> : null}
+            {error ? <div className="mb-2 rounded-xl bg-[rgba(248,113,113,0.12)] px-3.5 py-2 text-xs text-danger">⚠️ {error}</div> : null}
             <Markdown content={answer} />
             {mode === "streaming" ? <span className="stream-caret" /> : null}
           </div>

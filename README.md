@@ -3,8 +3,8 @@
 > **Apki soch ka digital saathi.** — *Your private AI companion.*
 
 JADUU is a local-first, privacy-obsessed AI desktop assistant for **Windows** and **macOS**.
-It chats, reads your documents, indexes your files and answers questions — entirely on your
-machine, powered by [Ollama](https://ollama.com). No cloud AI. No API keys. No telemetry.
+It chats, reads your documents, indexes your files and answers questions — powered by
+[Ollama](https://ollama.com). No cloud AI. No telemetry.
 
 ```
 User → JADUU → Local Ollama → Local Model → JADUU → User
@@ -34,8 +34,15 @@ No mandatory server exists between you and your AI.
 ## Requirements
 
 - [Node.js](https://nodejs.org) 20+
-- [Ollama](https://ollama.com/download) installed and running (default `http://localhost:11434`)
-- At least one model, e.g. `ollama pull qwen3` or `ollama pull llama3.2`
+- Access to an [Ollama](https://ollama.com) server — **local or remote**:
+  - Local: install from [ollama.com/download](https://ollama.com/download) (default `http://localhost:11434`)
+  - Remote: start the server with `OLLAMA_HOST=0.0.0.0` (plus any auth layer it uses), e.g.
+    `OLLAMA_HOST=0.0.0.0 ollama serve`
+- At least one model on that server, e.g. `ollama pull qwen3` or `ollama pull llama3.2`
+
+Enter the server's URL during onboarding or later in **Settings → AI → Ollama API URL**.
+If the endpoint sits behind an authenticating proxy, paste its bearer token into the
+optional **API Key** field — JADUU sends it as `Authorization: Bearer <key>`.
 
 ## Getting started
 
@@ -53,6 +60,8 @@ installs anything for you).
 | Command                | What it does                                            |
 | ---------------------- | ------------------------------------------------------- |
 | `npm run dev`          | Dev mode: esbuild watch + Vite + Electron               |
+| `npm start`            | Launch the production build without a dev server        |
+| `powershell -File scripts/make-shortcut.ps1` | Create a desktop shortcut for JADUU |
 | `npm run build`        | Generate assets + build main/preload/renderer bundles   |
 | `npm test`             | Full test suite (46 tests, runs under Electron's Node)  |
 | `npm run typecheck`    | Strict TypeScript check                                 |
@@ -96,8 +105,6 @@ Key decisions:
 - Chats, files, indexes and settings live in
   `%APPDATA%/JADUU/` (Windows) or `~/Library/Application Support/JADUU/` (macOS).
 - File text extraction is local (`pdf-parse`, `mammoth`, plain reads) — nothing uploads.
-- Local-only mode is on by default; there is no telemetry, ever.
-- Logs contain diagnostics only — never message content.
 
 ## Build outputs
 

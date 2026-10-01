@@ -336,7 +336,11 @@ export function registerIpc(deps: IpcDeps): void {
   handle(SETTINGS_UPDATE, (patch: unknown) => {
     const parsed = validate(settingsPatchSchema, patch);
     if (!parsed.ok) throw new Error(parsed.error);
-    return deps.settings.update(parsed.data);
+    const next = deps.settings.update(parsed.data);
+    // Rebind the Ollama client live so a new URL or API key applies without an app restart.
+    if (parsed.data.ollamaUrl) deps.ollama.setBaseUrl(parsed.data.ollamaUrl);
+    if (parsed.data.ollamaApiKey !== undefined) deps.ollama.setApiKey(parsed.data.ollamaApiKey);
+    return next;
   });
 }
 

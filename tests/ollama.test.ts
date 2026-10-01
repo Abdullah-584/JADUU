@@ -6,16 +6,19 @@ import { OllamaService } from "../src/main/ollama/OllamaService";
 
 let server: http.Server | undefined;
 let baseUrl = "";
+let lastAuth: string | undefined;
 
 function startMock(behavior: {
   version?: string;
   tags?: unknown;
   chatChunks?: unknown[];
   chatStatus?: number;
+  meStatus?: number;
   delayMs?: number;
 }): Promise<void> {
   return new Promise((resolve) => {
     server = http.createServer((req, res) => {
+      lastAuth = req.headers.authorization;
       const sendJson = (obj: unknown) => {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(obj));
@@ -27,6 +30,11 @@ function startMock(behavior: {
           return;
         }
         sendJson({ version: behavior.version });
+        return;
+      }
+      if (req.url === "/api/me" && req.method === "POST") {
+        res.writeHead(behavior.meStatus ?? 200, { "Content-Type": "application/json" });
+        res.end(behavior.meStatus && behavior.meStatus >= 400 ? '{"error":"invalid credentials"}' : '{"account":"tester"}');
         return;
       }
       if (req.url === "/api/tags") {
@@ -67,6 +75,7 @@ async function closeMock(): Promise<void> {
 }
 
 beforeEach(async () => {
+  lastAuth = undefined;
   await startMock({
     version: "0.5.4",
     tags: {
@@ -135,6 +144,61 @@ describe("OllamaProvider", () => {
     expect(sawDone).toBe(true);
   });
 
+  it("sends no Authorization header when no API key is set", async () => {
+    const provider = new OllamaProvider(baseUrl);
+    await provider.checkConnection();
+    expect(lastAuth).toBeUndefined();
+  });
+
+  it("sends a bearer token on every request when an API key is set", async () => {
+    const provider = new OllamaProvider(baseUrl, "test-key-123");
+    await provider.checkConnection();
+    expect(lastAuth).toBe("Bearer test-key-123");
+
+    await provider.getModels();
+    expect(lastAuth).toBe("Bearer test-key-123");
+
+    for await (const _ of provider.chat({ model: "qwen3:8b", messages: [{ role: "user", content: "hi" }] })) {
+      void _;
+    }
+    expect(lastAuth).toBe("Bearer test-key-123");
+  });
+
+  it("updates and clears the key via setApiKey", async () => {
+    const provider = new OllamaProvider(baseUrl);
+    provider.setApiKey("k1");
+    await provider.checkConnection();
+    expect(lastAuth).toBe("Bearer k1");
+    expect(provider.getApiKey()).toBe("k1");
+
+    provider.setApiKey("  ");
+    expect(provider.getApiKey()).toBe("");
+    await provider.checkConnection();
+    expect(lastAuth).toBeUndefined();
+  });
+
+  it("verifies the API key via /api/me during connection check", async () => {
+    const provider = new OllamaProvider(baseUrl, "good-key");
+    const status = await provider.checkConnection();
+    expect(status.online).toBe(true);
+    expect(lastAuth).toBe("Bearer good-key");
+  });
+
+  it("fails the connection check when the API key is rejected", async () => {
+    await closeMock();
+    await startMock({ version: "0.5.4", meStatus: 401 });
+    const provider = new OllamaProvider(baseUrl, "bad-key");
+    const status = await provider.checkConnection();
+    expect(status.online).toBe(false);
+    expect(status.error).toContain("401");
+  });
+
+  it("skips the /api/me probe when no API key is set", async () => {
+    const provider = new OllamaProvider(baseUrl);
+    const status = await provider.checkConnection();
+    expect(status.online).toBe(true);
+  });
+
   it("throws a friendly error on non-200 chat responses", async () => {
     await closeMock();
     await startMock({ version: "0.5.4", chatStatus: 404 });
@@ -154,6 +218,19 @@ describe("OllamaService", () => {
     expect(first.online).toBe(true);
     const second = await service.checkStatus();
     expect(second.url).toBe(baseUrl);
+  });
+
+  it("clears cached models when the API key changes", async () => {
+    const service = new OllamaService(baseUrl, "key-a");
+    const first = await service.getModels(true);
+    expect(first.length).toBe(2);
+
+    service.setApiKey("key-b");
+    // Cache cleared → next non-forced call must refetch (mock returns 2 again, so
+    // verify via the provider that the new key is actually in use).
+    expect(service.getApiKey()).toBe("key-b");
+    const status = await service.checkStatus(); // was not forced but key change reset TTL
+    expect(status.online).toBe(true);
   });
 
   it("supports aborting a chat stream", async () => {

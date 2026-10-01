@@ -54,7 +54,7 @@ function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStrea
         {!isUser ? (
           <div className="mb-1 flex items-center gap-1.5 text-[11px] text-txt-3">
             <IconSparkle size={12} className="text-accent" />
-            JADUU {message.model ? <span className="text-txt-3/70">· {message.model}</span> : null}
+            JADUU {message.model ? <span className="text-txt-3">· {message.model}</span> : null}
           </div>
         ) : null}
         {isUser ? (
